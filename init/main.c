@@ -377,7 +377,10 @@ static inline void smp_prepare_cpus(unsigned int maxcpus) { }
  */
 static void __init setup_command_line(char *command_line)
 {
-	size_t len = strlen(boot_command_line) + 1;
+	const char *force_normal = " androidboot.force_normal_boot=1";
+	bool normal_boot = strstr(boot_command_line, "skip_initramfs") != NULL;
+	size_t len = strlen(boot_command_line) + 1 +
+		     (normal_boot ? strlen(force_normal) : 0);
 
 	saved_command_line = memblock_alloc(len, SMP_CACHE_BYTES);
 	if (!saved_command_line)
@@ -387,11 +390,20 @@ static void __init setup_command_line(char *command_line)
 	if (!initcall_command_line)
 		panic("%s: Failed to allocate %zu bytes\n", __func__, len);
 
-	static_command_line = memblock_alloc(len, SMP_CACHE_BYTES);
+	static_command_line = memblock_alloc(strlen(command_line) + 1, SMP_CACHE_BYTES);
 	if (!static_command_line)
-		panic("%s: Failed to allocate %zu bytes\n", __func__, len);
+		panic("%s: Failed to allocate %zu bytes\n", __func__,
+		      strlen(command_line) + 1);
 
 	strcpy(saved_command_line, boot_command_line);
+	/*
+	 * The bootloader marks a normal boot with skip_initramfs, but dynamic
+	 * partitions need the ramdisk's first-stage init. Since the ramdisk is
+	 * kept (see initramfs.c), tell init that this is a normal boot,
+	 * otherwise it drops into recovery.
+	 */
+	if (normal_boot)
+		strlcat(saved_command_line, force_normal, len);
 	strcpy(static_command_line, command_line);
 }
 
