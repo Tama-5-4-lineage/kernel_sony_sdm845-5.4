@@ -69,3 +69,15 @@ $(TARGET_PREBUILT_INT_KERNEL): $(KERNEL_OUT) $(KERNEL_CONFIG) FORCE
 
 $(INSTALLED_KERNEL_TARGET): $(TARGET_PREBUILT_INT_KERNEL)
 	$(copy-file-to-target)
+
+# --- DTBO image (needed when BUILD_KERNEL=true; device tree overlays) ---
+INSTALLED_DTBOIMAGE_TARGET := $(PRODUCT_OUT)/dtbo-$(TARGET_DEVICE).img
+MKDTIMG ?= $(abspath system/libufdt/utils/src/mkdtboimg.py)
+
+$(INSTALLED_DTBOIMAGE_TARGET): $(INSTALLED_KERNEL_TARGET)
+	$(hide) echo "Making DTBO image: $@"
+	$(hide) if [ -f $(MKDTIMG) ]; then \
+		$(MKDTIMG) create $@ $$(find $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/dts -name '*.dtbo'); \
+	fi
+
+droidcore: $(INSTALLED_DTBOIMAGE_TARGET)
